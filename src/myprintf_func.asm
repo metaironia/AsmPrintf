@@ -23,10 +23,13 @@ MyPrintf:       push rbp
                 push rdi                         ; saving non-volatile registers MyPrintf destructs
                 push rsi                         ; 
 
-                push r9                          ; push fourth argument
-                push r8                          ; push third argument
-                push rdx                         ; push second argument 
-                push rcx
+; To use arguments in a straightforward manner, we should move args from registers to memory right before ret addr.
+; It's possible, because compiler reserves 32 bytes in stack before ret addr
+
+                mov [rbp+18h], rdx               ; move second argument before ret addr
+                mov [rbp+20h], r8                ; move third argument before ret addr
+                mov [rbp+28h], r9                ; move fourth argument before ret addr
+                push rcx                         ; push format string
 
                 mov rcx, -11                     ; STD_OUTPUT_HANDLE = -11
                 call GetStdHandle                ; stdout = GetStdHandle (-11)           
@@ -40,7 +43,6 @@ MyPrintf:       push rbp
                 mov rcx, rax                     ; rcx = str length
 
                 lea rsi, [rel print_buffer]      ; rsi = addr to buffer
-
 StringPrint:    cmp byte [rdx], '%'               
                 jne NotSpecifier
                 
@@ -58,8 +60,6 @@ NotSpecifier:   mov al, byte [rdx]               ; al = curr symbol
 
                 call CmdFlush                    ; calling cmd flush if the buffer is not empty
                 
-                add rsp, 24                      ; 24 because of 3 pushes at the very beginning
-
                 pop rsi                          ;
                 pop rdi                          ;
                 pop rbx                          ; popping non-volatile registers
@@ -151,7 +151,7 @@ PrintSpecifier: inc rdx                     ; rdx = pos in string after %
 
                 movzx rbx, byte [rdx]       ; rdx is char from 0 to 255
                 sub rbx, '%'  
-                shl rbx, 3                  ; * 8 because size of one cell in jump table = 8 bytes  
+                shl rbx, 3d                 ; * 8 because size of one cell in jump table = 8 bytes  
                 lea rax, [rel JumpTable] 
                 add rax, rbx                ; rax = addr in jmp table
                 jmp [rax]                          
@@ -160,7 +160,7 @@ JumpTable:
 
                         dq PercSpecifier
 
-times ('b' - 'a' + 1)   dq JumpTableEnd     ; skip a - b             
+times ('b' - '&' + 1)   dq JumpTableEnd     ; skip a - b             
                         dq CharSpecifier    ; %c
                         dq IntSpecifier     ; %d
 times ('z' - 'e' + 1)   dq JumpTableEnd     ; skip e - z
@@ -169,24 +169,16 @@ PercSpecifier:  mov al, '%'
                 call BufferCharAdd
                 jmp JumpTableEnd
 
-CharSpecifier:  call PrintChar             
+CharSpecifier:  add rbp, 8h
+                movzx rax, byte [rbp+10h]
+                call BufferCharAdd             
                 jmp JumpTableEnd
 
 IntSpecifier:   call PrintInt
                 jmp JumpTableEnd
 
 
-JumpTableEnd:   inc rdx                     ; pos in string after specifier
-                ret
-
-
-;------------------------------------------------ HAVEN'T BEEN IMPLEMENTED
-; PrintChar (prints one symbol)
-; Entry: rcx = symbol
-; Return: -
-;------------------------------------------------
-
-PrintChar:      ret          
+JumpTableEnd:   ret        
 
 ;------------------------------------------------ HAVEN'T BEEN IMPLEMENTED
 ; PrintInt (prints integer)
