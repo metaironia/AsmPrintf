@@ -161,8 +161,9 @@ JumpTable:
 
                         dq PercSpecifier    ; %%
 
-times ('b' - '&' + 1)   dq JumpTableEnd     ; skip a - b             
-                        
+times ('a' - '&' + 1)   dq JumpTableEnd     ; skip & - a
+
+                        dq BinSpecifier     ; %b                        
                         dq CharSpecifier    ; %c                        
                         dq IntSpecifier     ; %d
 
@@ -179,6 +180,12 @@ times ('z' - 'y' + 1)   dq JumpTableEnd     ; skip y - z
 
 PercSpecifier:  mov al, '%'
                 call BufferCharAdd
+                jmp JumpTableEnd
+
+BinSpecifier:   add rbp, 8h                 ; next arg
+                mov rbx, [rbp+10h]          ; rbx = hex number
+                call PrintBin
+                inc rdx
                 jmp JumpTableEnd
 
 CharSpecifier:  add rbp, 8h                 ; next arg
@@ -212,6 +219,33 @@ JumpTableEnd:   ret
 ;------------------------------------------------
 
 PrintInt:       ret
+
+;------------------------------------------------
+; PrintBin (prints binary number)
+; Entry: rbx = bin number
+; Return: -
+; Destructs: rax
+;------------------------------------------------
+
+PrintBin:       push rcx                    ; saving rcx
+                push rdx                    ; saving rdx because BufferCharAdd changes it
+
+                mov rcx, 64d                 ; whole number range
+
+PrintBinStart:  rol rbx, 1d                 ; one bit rol      
+
+                mov al, bl 
+                and al, 1d                  ; al either 1 or 0, mask to the least bit
+                add al, '0'                 ; al = ascii code of either 1 or 0
+
+                call BufferCharAdd
+
+                loop PrintBinStart
+
+                pop rdx                     ; popping rdx
+                pop rcx                     ; popping rcx
+
+                ret
 
 ;------------------------------------------------
 ; PrintHex (prints hex number)
