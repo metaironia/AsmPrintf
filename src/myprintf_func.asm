@@ -167,7 +167,11 @@ times ('a' - '&' + 1)   dq JumpTableEnd     ; skip & - a
                         dq CharSpecifier    ; %c                        
                         dq IntSpecifier     ; %d
 
-times ('r' - 'e' + 1)   dq JumpTableEnd     ; skip e - r
+times ('n' - 'e' + 1)   dq JumpTableEnd     ; skip e - n
+
+                        dq OctSpecifier     ; %o
+
+times ('r' - 'p' + 1)   dq JumpTableEnd     ; skip p - r
 
                         dq StrSpecifier     ; %s
 
@@ -196,6 +200,12 @@ CharSpecifier:  add rbp, 8h                 ; next arg
 IntSpecifier:   call PrintInt
                 jmp JumpTableEnd
 
+OctSpecifier:   add rbp, 8h                 ; next arg
+                mov rbx, [rbp+10h]          ; rbx = str addr
+                call PrintOct
+                inc rdx                     ; inc pos in format
+                jmp JumpTableEnd
+
 StrSpecifier:   add rbp, 8h                 ; next arg
                 mov rbx, [rbp+10h]          ; rbx = str addr
                 call PrintStr
@@ -219,6 +229,41 @@ JumpTableEnd:   ret
 ;------------------------------------------------
 
 PrintInt:       ret
+
+;------------------------------------------------
+; PrintOct (prints octal number)
+; Entry: rbx = octal number
+; Return: -
+; Destructs: rax
+;------------------------------------------------
+
+PrintOct:       push rcx                    ; saving rcx
+                push rdx                    ; saving rdx because BufferCharAdd changes it
+
+                rol rbx, 1d                 ; rol sign of num
+
+                mov al, bl  
+                and al, 1h                  ; 0001b, al = sign of num
+                add al, '0'                 ; al = either 0 or 1
+
+                call BufferCharAdd
+
+                mov rcx, 21d                ; whole number range (21*3 + 1 = 64 bits)
+
+PrintOctStart:  rol rbx, 3d                 ; three bits rol
+
+                mov al, bl 
+                and al, 7h                  ; 0111b
+                add al, '0'                 ; al = ascii code 0-7
+
+                call BufferCharAdd
+
+                loop PrintOctStart
+
+                pop rdx                     ; popping rdx
+                pop rcx                     ; popping rcx
+
+                ret
 
 ;------------------------------------------------
 ; PrintBin (prints binary number)
