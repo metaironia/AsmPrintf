@@ -170,26 +170,37 @@ times ('r' - 'e' + 1)   dq JumpTableEnd     ; skip e - r
 
                         dq StrSpecifier     ; %s
 
-times ('z' - 't' + 1)   dq JumpTableEnd     ; skip t - z
+times ('w' - 't' + 1)   dq JumpTableEnd     ; skip t - w
+
+                        dq HexSpecifier     ; %x
+
+times ('z' - 'y' + 1)   dq JumpTableEnd     ; skip y - z
 
 
 PercSpecifier:  mov al, '%'
                 call BufferCharAdd
                 jmp JumpTableEnd
 
-CharSpecifier:  add rbp, 8h
-                movzx rax, byte [rbp+10h]   ; al = symbol
+CharSpecifier:  add rbp, 8h                 ; next arg
+                mov al, byte [rbp+10h]      ; al = symbol
                 call BufferCharAdd             
                 jmp JumpTableEnd
 
 IntSpecifier:   call PrintInt
                 jmp JumpTableEnd
 
-StrSpecifier:   add rbp, 8h
-                mov rbx, [rbp+10h]          ; rax = str addr
+StrSpecifier:   add rbp, 8h                 ; next arg
+                mov rbx, [rbp+10h]          ; rbx = str addr
                 call PrintStr
                 inc rdx                     ; inc pos in format
                 jmp JumpTableEnd
+
+HexSpecifier:   add rbp, 8h                 ; next arg
+                mov rbx, [rbp+10h]          ; rbx = hex number
+                call PrintHex
+                inc rdx
+                jmp JumpTableEnd
+
 
 JumpTableEnd:   ret        
 
@@ -201,6 +212,36 @@ JumpTableEnd:   ret
 ;------------------------------------------------
 
 PrintInt:       ret
+
+;------------------------------------------------
+; PrintHex (prints hex number)
+; Entry: rbx = hex number
+; Return: -
+; Destructs: rax
+;------------------------------------------------
+
+PrintHex:       push rcx                    ; saving rcx
+                push rdx                    ; saving rdx because BufferCharAdd changes it
+
+                mov rcx, 16d                 ; whole number range
+
+PrintHexStart:  rol rbx, 4d                 ; one symbol rol      
+
+                mov dl, bl                  ; symbol in dl
+                and dl, 0Fh                 ; 00001111b mask to very right symbol
+                lea rax, [rel hex_letters]  
+                add al, dl                  ; rax = addr to symbol in hex_letters
+
+                mov al, [rax]               ; al = ascii code of symbol 
+
+                call BufferCharAdd
+
+                loop PrintHexStart
+
+                pop rdx                     ; popping rdx
+                pop rcx                     ; popping rcx
+
+                ret
 
 ;------------------------------------------------
 ; PrintStr (prints string)
@@ -227,7 +268,10 @@ PrintStrStart:  mov al, byte [rbx]
 PrintStrEnd:    ret 
 
 section .data
+
 print_buffer times PRINT_BUFFER_CAPACITY db 0
 buffer_size                              db 0
 
 args_amount                              db 0
+
+hex_letters                              db "0123456789ABCDEF"
