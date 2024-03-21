@@ -6,9 +6,8 @@ global MyPrintf
 section .text
 
 PRINT_BUFFER_CAPACITY equ 16d
-RET_OPCODE            equ 3ch
+INT_BUFFER_CAPACITY   equ 20d
 
-; TODO - output to buffer instead of right to the console
 
 ;------------------------------------------------
 ; MyPrintf (analog to printf function in stdio)
@@ -165,7 +164,7 @@ times ('a' - '&' + 1)   dq JumpTableEnd     ; skip & - a
 
                         dq BinSpecifier     ; %b                        
                         dq CharSpecifier    ; %c                        
-                        dq IntSpecifier     ; %d
+                        dq DecSpecifier     ; %d
 
 times ('n' - 'e' + 1)   dq JumpTableEnd     ; skip e - n
 
@@ -187,9 +186,9 @@ PercSpecifier:  mov al, '%'
                 jmp JumpTableEnd
 
 BinSpecifier:   add rbp, 8h                 ; next arg
-                mov rbx, [rbp+10h]          ; rbx = hex number
+                mov rbx, [rbp+10h]          ; rbx = number to bin print
                 call PrintBin
-                inc rdx
+                inc rdx                     ; inc pos in format str
                 jmp JumpTableEnd
 
 CharSpecifier:  add rbp, 8h                 ; next arg
@@ -197,42 +196,94 @@ CharSpecifier:  add rbp, 8h                 ; next arg
                 call BufferCharAdd             
                 jmp JumpTableEnd
 
-IntSpecifier:   call PrintInt
+DecSpecifier:   add rbp, 8h                 ; next arg
+                mov rbx, [rbp+10h]          ; rbx = number to dec print
+                call PrintDec               
+                inc rdx                     ; inc pos in format str
                 jmp JumpTableEnd
 
 OctSpecifier:   add rbp, 8h                 ; next arg
-                mov rbx, [rbp+10h]          ; rbx = str addr
+                mov rbx, [rbp+10h]          ; rbx = number to oct print
                 call PrintOct
-                inc rdx                     ; inc pos in format
+                inc rdx                     ; inc pos in format str
                 jmp JumpTableEnd
 
 StrSpecifier:   add rbp, 8h                 ; next arg
                 mov rbx, [rbp+10h]          ; rbx = str addr
                 call PrintStr
-                inc rdx                     ; inc pos in format
+                inc rdx                     ; inc pos in format str
                 jmp JumpTableEnd
 
 HexSpecifier:   add rbp, 8h                 ; next arg
                 mov rbx, [rbp+10h]          ; rbx = hex number
                 call PrintHex
-                inc rdx
+                inc rdx                     ; inc pos in format str
                 jmp JumpTableEnd
-
 
 JumpTableEnd:   ret        
 
-;------------------------------------------------ HAVEN'T BEEN IMPLEMENTED
-; PrintInt (prints integer)
-; Entry:
+
+;------------------------------------------------
+; PrintDec (prints decimal number)
+; Entry: rbx = number to decimal print
 ; Return: -
-; Destructs: 
+; Destructs: rax, rcx
 ;------------------------------------------------
 
-PrintInt:       ret
+PrintDec:       push rdx                    ; saving rdx because div destructs it
+                push rcx                    ; saving rcx
+
+                mov rax, rbx                ; rax = number to dec print
+
+                rol rbx, 33d                ; sign bit is least bit now
+                and bl, 1h                  ; bl = 1 if signed
+
+                test bl, bl                 ; bl = sign of num
+                je NotSigned
+
+                mov bl, al                  ; saving al
+                mov al, '-'                 
+                call BufferCharAdd
+                mov al, bl                  ; restoring al
+
+                not eax                     ;
+                inc eax                     ; abs of signed num
+
+NotSigned:      xor rcx, rcx                ; symbol counter
+
+                mov r9, 10d          
+
+                lea rbx, [rel buffer_to_int]
+
+DecNextSymbol:  xor rdx, rdx                ; rdx:rax = signed number
+
+                div r9                      ; rdx = remainder, rax = result
+
+                inc rbx                     ; rbx = addr to empty cell in buffer to int               
+                add dl, '0'                 ; dl = ascii code of current symbol
+                mov [rbx], dl               ; add symbol to buffer
+
+                inc rcx
+
+                test rax, rax
+                jne DecNextSymbol
+
+PrintBufFill:   mov al, [rbx]
+                dec rbx                     ; dec pos in buffer to int 
+
+                call BufferCharAdd
+
+                loop PrintBufFill
+
+                pop rcx                     ; popping rcx
+                pop rdx                     ; popping rdx
+
+                ret
+
 
 ;------------------------------------------------
 ; PrintOct (prints octal number)
-; Entry: rbx = octal number
+; Entry: rbx = number to octal print
 ; Return: -
 ; Destructs: rax
 ;------------------------------------------------
@@ -265,9 +316,10 @@ PrintOctStart:  rol rbx, 3d                 ; three bits rol
 
                 ret
 
+
 ;------------------------------------------------
 ; PrintBin (prints binary number)
-; Entry: rbx = bin number
+; Entry: rbx = number to binary print
 ; Return: -
 ; Destructs: rax
 ;------------------------------------------------
@@ -292,9 +344,10 @@ PrintBinStart:  rol rbx, 1d                 ; one bit rol
 
                 ret
 
+
 ;------------------------------------------------
 ; PrintHex (prints hex number)
-; Entry: rbx = hex number
+; Entry: rbx = number to hex print
 ; Return: -
 ; Destructs: rax
 ;------------------------------------------------
@@ -321,6 +374,7 @@ PrintHexStart:  rol rbx, 4d                 ; one symbol rol
                 pop rcx                     ; popping rcx
 
                 ret
+
 
 ;------------------------------------------------
 ; PrintStr (prints string)
@@ -351,6 +405,6 @@ section .data
 print_buffer times PRINT_BUFFER_CAPACITY db 0
 buffer_size                              db 0
 
-args_amount                              db 0
-
 hex_letters                              db "0123456789ABCDEF"
+
+buffer_to_int times INT_BUFFER_CAPACITY  db 0
