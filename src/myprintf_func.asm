@@ -197,7 +197,7 @@ CharSpecifier:  add rbp, 8h                 ; next arg
                 jmp JumpTableEnd
 
 DecSpecifier:   add rbp, 8h                 ; next arg
-                mov rbx, [rbp+10h]          ; rbx = number to dec print
+                mov ebx, [rbp+10h]          ; rbx = number to dec print
                 call PrintDec               
                 inc rdx                     ; inc pos in format str
                 jmp JumpTableEnd
@@ -224,18 +224,51 @@ JumpTableEnd:   ret
 
 
 ;------------------------------------------------
+; ClrLeadingZeros
+; Entry: rbx = number
+; Return: rcx = 64 - cleared bits
+; Note: number will be rolled to rcx bits
+; Destructs: rax
+;------------------------------------------------
+
+ClrLeadingZeros:    xor rcx, rcx
+
+ZerosClearStart:    mov rax, rbx            ; rax = number
+
+                    inc rcx
+
+                    rol rax, cl
+                    and al, 1h
+                    test al, al             ; checks if bit is zero            
+
+                    je ZerosClearStart
+
+                    dec rcx                 
+
+                    mov rbx, rax
+                    ror rbx, 1d             ; one iteration is extra
+
+                    mov rax, 64d
+                    sub rax, rcx
+                    xchg rax, rcx           ; rcx = 64 - rolled bits 
+
+                    ret
+
+
+;------------------------------------------------
 ; PrintDec (prints decimal number)
 ; Entry: rbx = number to decimal print
 ; Return: -
 ; Destructs: rax, rcx
+; Note: number should be 32-bit
 ;------------------------------------------------
 
 PrintDec:       push rdx                    ; saving rdx because div destructs it
                 push rcx                    ; saving rcx
 
-                mov rax, rbx                ; rax = number to dec print
+                mov eax, ebx                ; eax = number to dec print
 
-                rol rbx, 33d                ; sign bit is least bit now
+                rol ebx, 1d                ; sign bit is least bit now
                 and bl, 1h                  ; bl = 1 if signed
 
                 test bl, bl                 ; bl = sign of num
@@ -286,22 +319,31 @@ PrintBufFill:   mov al, [rbx]
 ; Entry: rbx = number to octal print
 ; Return: -
 ; Destructs: rax
+; Note: number should be 32-bit
 ;------------------------------------------------
 
 PrintOct:       push rcx                    ; saving rcx
                 push rdx                    ; saving rdx because BufferCharAdd changes it
 
-                rol rbx, 1d                 ; rol sign of num
+                rol ebx, 1d                 ; rol sign of num
 
                 mov al, bl  
                 and al, 1h                  ; 0001b, al = sign of num
-                add al, '0'                 ; al = either 0 or 1
+               
+                test al, al
+                jne OctSignNotZero
+
+                call ClrLeadingZeros
+
+                jmp PrintOctStart
+
+OctSignNotZero: add al, '0'                 ; al = either 0 or 1
 
                 call BufferCharAdd
 
                 mov rcx, 21d                ; whole number range (21*3 + 1 = 64 bits)
 
-PrintOctStart:  rol rbx, 3d                 ; three bits rol
+PrintOctStart:  rol ebx, 3d                 ; three bits rol
 
                 mov al, bl 
                 and al, 7h                  ; 0111b
@@ -322,12 +364,17 @@ PrintOctStart:  rol rbx, 3d                 ; three bits rol
 ; Entry: rbx = number to binary print
 ; Return: -
 ; Destructs: rax
+; Note: number should be 32-bit
 ;------------------------------------------------
 
 PrintBin:       push rcx                    ; saving rcx
                 push rdx                    ; saving rdx because BufferCharAdd changes it
 
-                mov rcx, 64d                 ; whole number range
+                mov eax, ebx                ;
+                xor rbx, rbx                ; 
+                mov ebx, eax                ; 32-bit number
+
+                call ClrLeadingZeros
 
 PrintBinStart:  rol rbx, 1d                 ; one bit rol      
 
@@ -355,7 +402,17 @@ PrintBinStart:  rol rbx, 1d                 ; one bit rol
 PrintHex:       push rcx                    ; saving rcx
                 push rdx                    ; saving rdx because BufferCharAdd changes it
 
-                mov rcx, 16d                 ; whole number range
+                call ClrLeadingZeros
+                
+                mov dl, cl
+                shr rcx, 2                  ; rcx /= 4 
+                
+                and dl, 3h                  
+                test dl, dl                 ; check if counter is divisible by 4
+
+                je PrintHexStart
+
+                inc rcx                     ; add extra symbol to print
 
 PrintHexStart:  rol rbx, 4d                 ; one symbol rol      
 
