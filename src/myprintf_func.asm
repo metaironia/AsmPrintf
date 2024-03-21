@@ -60,11 +60,12 @@ NotSpecifier:   mov al, byte [rdx]               ; al = curr symbol
 
                 call CmdFlush                    ; calling cmd flush if the buffer is not empty
                 
-                pop rsi                          ;
+EndPrint:       pop rsi                          ;
                 pop rdi                          ;
                 pop rbx                          ; popping non-volatile registers
                 pop rbp                          ; 
-EndPrint:       ret
+
+                ret
 
 
 ;------------------------------------------------
@@ -158,25 +159,37 @@ PrintSpecifier: inc rdx                     ; rdx = pos in string after %
 
 JumpTable:   
 
-                        dq PercSpecifier
+                        dq PercSpecifier    ; %%
 
 times ('b' - '&' + 1)   dq JumpTableEnd     ; skip a - b             
-                        dq CharSpecifier    ; %c
+                        
+                        dq CharSpecifier    ; %c                        
                         dq IntSpecifier     ; %d
-times ('z' - 'e' + 1)   dq JumpTableEnd     ; skip e - z
+
+times ('r' - 'e' + 1)   dq JumpTableEnd     ; skip e - r
+
+                        dq StrSpecifier     ; %s
+
+times ('z' - 't' + 1)   dq JumpTableEnd     ; skip t - z
+
 
 PercSpecifier:  mov al, '%'
                 call BufferCharAdd
                 jmp JumpTableEnd
 
 CharSpecifier:  add rbp, 8h
-                movzx rax, byte [rbp+10h]
+                movzx rax, byte [rbp+10h]   ; al = symbol
                 call BufferCharAdd             
                 jmp JumpTableEnd
 
 IntSpecifier:   call PrintInt
                 jmp JumpTableEnd
 
+StrSpecifier:   add rbp, 8h
+                mov rbx, [rbp+10h]          ; rax = str addr
+                call PrintStr
+                inc rdx                     ; inc pos in format
+                jmp JumpTableEnd
 
 JumpTableEnd:   ret        
 
@@ -184,9 +197,35 @@ JumpTableEnd:   ret
 ; PrintInt (prints integer)
 ; Entry:
 ; Return: -
+; Destructs: 
 ;------------------------------------------------
 
 PrintInt:       ret
+
+;------------------------------------------------
+; PrintStr (prints string)
+; Entry: rbx = string addr
+; Return: -
+; Destructs: al
+;------------------------------------------------
+
+PrintStr:       cmp byte [rbx], 0 
+                je PrintStrEnd              ; if null-terminal
+
+                push rdx                    ; saving rdx because BufferCharAdd changes it
+
+PrintStrStart:  mov al, byte [rbx]
+                call BufferCharAdd          ; add to buf
+
+                inc rbx                     ; inc pos in str
+
+                cmp byte [rbx], 0 
+                jne PrintStrStart            ; if null-terminal
+
+                pop rdx                     ; popping rdx
+
+PrintStrEnd:    ret 
+
 section .data
 print_buffer times PRINT_BUFFER_CAPACITY db 0
 buffer_size                              db 0
