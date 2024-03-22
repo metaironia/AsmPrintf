@@ -5,8 +5,8 @@ global MyPrintf
 
 section .text
 
-PRINT_BUFFER_CAPACITY equ 16d
-INT_BUFFER_CAPACITY   equ 20d
+PRINT_BUFFER_CAPACITY equ 4d
+INT_BUFFER_CAPACITY   equ 20d                   ; DO NOT CHANGE, ELSE INT WILL NOT BE FITTED IN THE BUFFER!!!
 
 
 ;------------------------------------------------
@@ -41,7 +41,7 @@ MyPrintf:       push rbp
                 call MyStrlen               
                 mov rcx, rax                     ; rcx = str length
 
-                xor r10, r10                     ; buffer_size = 0
+                xor r10, r10                     ; size of printbuffer = 0 
 
                 lea rsi, [rel print_buffer]      ; rsi = addr to buffer
 StringPrint:    cmp byte [rdx], '%'               
@@ -56,7 +56,7 @@ NotSpecifier:   mov al, byte [rdx]               ; al = curr symbol
 
                 loop StringPrint
 
-                cmp r10, 0                       ; if buffer size is 0
+                test r10, r10                    ; if buffer size is 0
                 je EndPrint
 
                 call CmdFlush                    ; calling cmd flush if the buffer is not empty
@@ -103,7 +103,7 @@ BufferCharAdd:  mov [rsi], al                                         ; filling 
                 inc rsi                                               ; inc pos in buffer
                 inc rdx                                               ; inc pos in string
 
-                cmp r10, PRINT_BUFFER_CAPACITY - 1 ; minus 1 because of last null-terminator
+                cmp r10, PRINT_BUFFER_CAPACITY                        ; minus 1 because of last null-terminator
                 jne NoFlush
 
                 push rcx                                              ; saving rest str length
@@ -271,10 +271,10 @@ PrintDec:       push rdx                    ; saving rdx because div destructs i
                 test bl, bl                 ; bl = sign of num
                 je NotSigned
 
-                mov bl, al                  ; saving al
+                mov rbx, rax                ; saving al
                 mov al, '-'                 
                 call BufferCharAdd
-                mov al, bl                  ; restoring al
+                mov rax, rbx                ; restoring al
 
                 not eax                     ;
                 inc eax                     ; abs of signed num
@@ -453,7 +453,7 @@ PrintStrStart:  mov al, byte [rbx]
                 inc rbx                     ; inc pos in str
 
                 cmp byte [rbx], 0 
-                jne PrintStrStart            ; if null-terminal
+                jne PrintStrStart           ; if null-terminal
 
                 pop rdx                     ; popping rdx
 
