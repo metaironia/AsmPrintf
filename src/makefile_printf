@@ -1,7 +1,13 @@
 .PHONY: all clean
 CC = g++
 ASM = nasm
-CFLAGS = -Wall -Werror -Wmissing-prototypes
+WARNINGS = -Wshadow -Winit-self -Wcast-align -Wundef -Wfloat-equal -Winline -Wredundant-decls \
+ 	 -Wunreachable-code -Wmissing-declarations -Wmissing-include-dirs -Wswitch-enum -Wswitch-default \
+	 -Weffc++ -Wmain -Wextra -Wall -g -pipe -fexceptions -Wcast-qual -Wconversion -Wctor-dtor-privacy \
+	 -Wempty-body -Wformat-security -Wformat=2 -Wignored-qualifiers -Wlogical-op -Wno-missing-field-initializers \
+	 -Wnon-virtual-dtor -Woverloaded-virtual -Wpointer-arith -Wsign-promo -Wstack-usage=8192 -Wstrict-aliasing \
+	 -Wstrict-null-sentinel -Wtype-limits -Wwrite-strings -Werror=vla -D_DEBUG -D_EJUDGE_CLIENT_SIDE
+CFLAGS = 
 ASMFLAGS = -fwin64
 SOURCES_ASM = myprintf_func.asm
 SOURCES_CPP = main.cpp
@@ -11,7 +17,10 @@ EXECUTABLE = printf_test
 all: $(EXECUTABLE)
 
 $(EXECUTABLE): $(OBJECTS) 
-	$(CC) $(CFLAGS) $^ -o $@ 
+	$(CC) $(WARNINGS) $(CFLAGS) $^ -o $@ 
+
+%.o : %.cpp 
+	$(CC) -c $(WARNINGS) $(CFLAGS) $< -o $@
 
 %.o : %.asm  
 	$(ASM) $(ASMFLAGS) $< -o $@
