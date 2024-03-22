@@ -397,10 +397,15 @@ PrintBinStart:  rol rbx, 1d                 ; one bit rol
 ; Entry: rbx = number to hex print
 ; Return: -
 ; Destructs: rax
+; Note: number should be 32-bit
 ;------------------------------------------------
 
 PrintHex:       push rcx                    ; saving rcx
                 push rdx                    ; saving rdx because BufferCharAdd changes it
+
+                mov eax, ebx                ;
+                xor rbx, rbx                ; 
+                mov ebx, eax                ; 32-bit number
 
                 call ClrLeadingZeros
                 
