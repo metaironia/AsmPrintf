@@ -16,7 +16,7 @@ INT_BUFFER_CAPACITY   equ 20d
 ;------------------------------------------------
 
 MyPrintf:       push rbp
-                mov rbp, rsp                       ; bp-chain
+                mov rbp, rsp                     ; bp-chain
 
                 push rbx                         ; 
                 push rdi                         ; saving non-volatile registers MyPrintf destructs
@@ -41,6 +41,8 @@ MyPrintf:       push rbp
                 call MyStrlen               
                 mov rcx, rax                     ; rcx = str length
 
+                xor r10, r10                     ; buffer_size = 0
+
                 lea rsi, [rel print_buffer]      ; rsi = addr to buffer
 StringPrint:    cmp byte [rdx], '%'               
                 jne NotSpecifier
@@ -54,7 +56,7 @@ NotSpecifier:   mov al, byte [rdx]               ; al = curr symbol
 
                 loop StringPrint
 
-                cmp byte [rel buffer_size], 0
+                cmp r10, 0                       ; if buffer size is 0
                 je EndPrint
 
                 call CmdFlush                    ; calling cmd flush if the buffer is not empty
@@ -97,11 +99,11 @@ EndString:      ret
 
 BufferCharAdd:  mov [rsi], al                                         ; filling buffer
 
-                inc byte [rel buffer_size]                            ; buffer_size++
+                inc r10                                               ; buffer_size++
                 inc rsi                                               ; inc pos in buffer
                 inc rdx                                               ; inc pos in string
 
-                cmp byte [rel buffer_size], PRINT_BUFFER_CAPACITY - 1 ; minus 1 because of last null-terminator
+                cmp r10, PRINT_BUFFER_CAPACITY - 1 ; minus 1 because of last null-terminator
                 jne NoFlush
 
                 push rcx                                              ; saving rest str length
@@ -122,14 +124,14 @@ NoFlush:        ret
 
 CmdFlush:       mov rcx, rdi                     ; rcx = stdout
                 mov rdx, print_buffer            ; rdx = print_buffer addr
-                movsx r8, byte [rel buffer_size] ; r8 = buffer size
+                mov r8, r10                      ; r8 = buffer size
                 xor r9, r9                       ; r9 = 0 (offset to char ptr) 
-                push qword 0                     ; reserved
-           
+                push qword 0                     ; reserved         
+
                 call WriteConsoleA               ; WriteConsole (stdout, print_buffer, buffer_size, NULL, 0)
                 add rsp, 8                       ; clears the arguments stored in stack 
 
-                mov byte [rel buffer_size], 0    ; buffer_size = 0
+                xor r10, r10                     ; buffer_size = 0
                 lea rsi, [rel print_buffer]      ; rsi = addr to buffer
 
                 ret      
@@ -458,10 +460,12 @@ PrintStrStart:  mov al, byte [rbx]
 PrintStrEnd:    ret 
 
 section .data
-
+                                         db "PRINT<<<"          ; buffer start
 print_buffer times PRINT_BUFFER_CAPACITY db 0
-buffer_size                              db 0
+                                         db ">>>"               ; buffer end
 
 hex_letters                              db "0123456789ABCDEF"
 
+                                         db "INT<<<"            ; buffer start
 buffer_to_int times INT_BUFFER_CAPACITY  db 0
+                                         db ">>>"               ; buffer end
