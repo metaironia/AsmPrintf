@@ -145,23 +145,18 @@ PrintSpecifier: inc rdx                     ; rdx = pos in string after %
 
                 cmp byte [rdx], 'x'         ;
                 ja JumpTableEnd             ; if specifier doesn't exist
-                
+
                 cmp byte [rdx], '%'         ;
-                jb JumpTableEnd             ; if specifier doesn't exist    
+                je PercSpecifier            ; %%
 
-                movzx rbx, byte [rdx]       ; rdx is char from 0 to 255
-                sub rbx, '%'  
-                shl rbx, 3d                 ; * 8 because size of one cell in jump table = 8 bytes  
+                cmp byte [rdx], 'b'         ;
+                jb JumpTableEnd             ; if specifier doesn't exist 
+
+                movzx rbx, byte [rdx]       ; rdx is char from 0 to 255              
                 lea rax, [rel JumpTable] 
-                add rax, rbx                ; rax = addr in jmp table
-                jmp [rax]                          
-
-JumpTable:   
-
-                        dq PercSpecifier    ; %%
-
-times ('a' - '&' + 1)   dq JumpTableEnd     ; skip & - a
-
+                jmp [rax + (rbx - 'b') * 8] ; rbx - 'b' = base address,                            
+                                            ; * 8 because size of one cell in jump table = 8 bytes
+JumpTable:  
                         dq BinSpecifier     ; %b                        
                         dq CharSpecifier    ; %c                        
                         dq DecSpecifier     ; %d
