@@ -11,7 +11,7 @@ INT_BUFFER_CAPACITY   equ 20d                   ; DO NOT CHANGE, ELSE INT WILL N
 
 ;------------------------------------------------
 ; MyPrintf (analog to printf function in stdio)
-; Supports nothing
+; Supports %%, %c, %s, %d, %b, %x, %o  
 ; Return: text in console
 ;------------------------------------------------
 
@@ -94,7 +94,6 @@ EndString:      ret
 ; Entry: al = symbol
 ; Assumes: rsi = buffer addr, rdx = pos in printable string
 ; Return: -
-; Destructs:
 ;------------------------------------------------
 
 BufferCharAdd:  mov [rsi], al                                         ; filling buffer
@@ -103,7 +102,7 @@ BufferCharAdd:  mov [rsi], al                                         ; filling 
                 inc rsi                                               ; inc pos in buffer
                 inc rdx                                               ; inc pos in string
 
-                cmp r10, PRINT_BUFFER_CAPACITY                        ; minus 1 because of last null-terminator
+                cmp r10, PRINT_BUFFER_CAPACITY                        
                 jne NoFlush
 
                 push rcx                                              ; saving rest str length
